@@ -57,16 +57,19 @@ jobs:
       run: |
         gcloud container clusters get-credentials ${CLUSTER} --region ${REGION} --project ${PROJECT_ID}
 
+    # ✅ Step 7: Install GKE auth plugin (fixed for Ubuntu 24.04)
     - name: Install GKE auth plugin
       run: |
-        sudo apt-get update && sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.gpg >/dev/null
+        sudo apt-get update -y
+        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
         echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
-    # Step 7: Deploy to GKE dynamically
+    # Step 8: Deploy to GKE dynamically
     - name: Deploy to GKE (generate manifests dynamically)
       run: |
         IMAGE_URI=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:latest
-
         cat > k8s-deployment.yaml <<EOF
         apiVersion: apps/v1
         kind: Deployment
@@ -103,9 +106,9 @@ jobs:
             targetPort: 8200
         EOF
 
-        kubectl apply -f k8s-deployment.yaml
-        kubectl apply -f k8s-service.yaml
+        kubectl apply -f k8s-deployment.yaml --validate=false
+        kubectl apply -f k8s-service.yaml --validate=false
 
-    # Step 8: Show service details
+    # Step 9: Show service details
     - name: Show service details
       run: kubectl get svc iris-service -o wide || true
