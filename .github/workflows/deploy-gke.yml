@@ -6,11 +6,11 @@ on:
       - main
 
 env:
-  REGION: ${{ secrets.GCP_REGION }}
-  PROJECT_ID: ${{ secrets.GCP_PROJECT }}
+  REGION: us-central1
+  PROJECT_ID: pivotal-shield-473215-e4
   REPO: iris-repo
   IMAGE: iris-api
-  CLUSTER: ${{ secrets.GKE_CLUSTER }}
+  CLUSTER: iris-cluster
 
 jobs:
   build-and-deploy:
