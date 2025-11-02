@@ -17,34 +17,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # Step 1: Checkout code
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-      with:
-        service_account_key: ${{ secrets.GCP_SA_KEY }}
-        project_id: ${{ secrets.GCP_PROJECT }}
-        export_default_credentials: true
+    # Step 2: Setup GCP credentials manually (using GCP_KEY)
+    - name: Setup GCP credentials
+      env:
+        GCP_KEY: ${{ secrets.GCP_KEY }}
+      run: |
+        echo "$GCP_KEY" > gcp-key.json
+        echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
+        export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json
+        python3 -m json.tool gcp-key.json > /dev/null && echo "✓ Valid JSON"
+        gcloud auth activate-service-account --key-file=gcp-key.json
+        gcloud config set project $PROJECT_ID
 
+    # Step 3: Configure Docker for Artifact Registry
     - name: Configure Docker for Artifact Registry
       run: gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
 
+    # Step 4: Build Docker image (in fastapi folder)
     - name: Build Docker image
+      working-directory: ./fastapi
       run: |
         IMAGE_URI=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:latest
         docker build -t $IMAGE_URI .
         echo "Built $IMAGE_URI"
-      
+
+    # Step 5: Push image to Artifact Registry
     - name: Push Docker image to Artifact Registry
+      working-directory: ./fastapi
       run: |
         IMAGE_URI=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:latest
         docker push $IMAGE_URI
 
+    # Step 6: Get GKE credentials
     - name: Get GKE credentials
       run: |
         gcloud container clusters get-credentials ${CLUSTER} --region ${REGION} --project ${PROJECT_ID}
 
+    # Step 7: Deploy to GKE dynamically
     - name: Deploy to GKE (generate manifests dynamically)
       run: |
         IMAGE_URI=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:latest
@@ -88,6 +101,6 @@ jobs:
         kubectl apply -f k8s-deployment.yaml
         kubectl apply -f k8s-service.yaml
 
+    # Step 8: Show service details
     - name: Show service details
       run: kubectl get svc iris-service -o wide || true
-
