@@ -60,11 +60,18 @@ jobs:
     # ✅ Step 7: Install GKE auth plugin (fixed for Ubuntu 24.04)
     - name: Install GKE auth plugin
       run: |
-        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
-        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.gpg >/dev/null
+        # Add Google Cloud SDK repository and import its GPG key
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+
+        # Update and install the plugin
         sudo apt-get update -y
         sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+
+        # Enable plugin for kubectl
         echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+
 
     # Step 8: Deploy to GKE dynamically
     - name: Deploy to GKE (generate manifests dynamically)
